@@ -100,16 +100,21 @@ class InternalExecRuntime implements ExecRuntime, Cancellable {
             if (log.isDebugEnabled()) {
                 log.debug("{} acquiring endpoint ({})", id, connectionRequestTimeout);
             }
+
+            // 从连接池中租用一个连接对象
             final LeaseRequest connRequest = manager.lease(id, route, connectionRequestTimeout, object);
             state = object;
             if (cancellableDependency != null) {
                 cancellableDependency.setDependency(connRequest);
             }
             try {
+                // 从pool里面获取一个连接的真正实现
                 final ConnectionEndpoint connectionEndpoint = connRequest.get(connectionRequestTimeout);
                 endpointRef.set(connectionEndpoint);
+                // 连接如果已经构建了，说明是复用的
                 reusable = connectionEndpoint.isConnected();
                 if (cancellableDependency != null) {
+                    // 和上面set的区别？（粒度更高？）
                     cancellableDependency.setDependency(this);
                 }
                 if (log.isDebugEnabled()) {
@@ -159,6 +164,7 @@ class InternalExecRuntime implements ExecRuntime, Cancellable {
         if (log.isDebugEnabled()) {
             log.debug("{} connecting endpoint ({})", ConnPoolSupport.getId(endpoint), connectTimeout);
         }
+        // 往对端发起真正的connect请求
         manager.connect(endpoint, connectTimeout, context);
         if (log.isDebugEnabled()) {
             log.debug("{} endpoint connected", ConnPoolSupport.getId(endpoint));

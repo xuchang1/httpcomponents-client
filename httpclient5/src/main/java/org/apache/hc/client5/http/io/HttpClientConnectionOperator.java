@@ -46,6 +46,7 @@ import org.apache.hc.core5.util.Timeout;
  */
 @Contract(threading = ThreadingBehavior.STATELESS)
 @Internal
+// 连接的相关操作，如发起连接请求
 public interface HttpClientConnectionOperator {
 
     /**

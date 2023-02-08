@@ -51,6 +51,7 @@ class ResponseEntityProxy extends HttpEntityWrapper implements EofSensorWatcher 
     public static void enhance(final ClassicHttpResponse response, final ExecRuntime execRuntime) {
         final HttpEntity entity = response.getEntity();
         if (entity != null && entity.isStreaming() && execRuntime != null) {
+            // 这个地方的enhance是为了close的时候能够去释放连接
             response.setEntity(new ResponseEntityProxy(entity, execRuntime));
         }
     }
@@ -88,6 +89,7 @@ class ResponseEntityProxy extends HttpEntityWrapper implements EofSensorWatcher 
 
     @Override
     public InputStream getContent() throws IOException {
+        // close的时候，会触发 streamClosed 的逻辑，从而release 连接
         return new EofSensorInputStream(super.getContent(), this);
     }
 

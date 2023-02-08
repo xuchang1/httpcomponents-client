@@ -156,7 +156,9 @@ public class ManagedHttpClientConnectionFactory implements HttpConnectionFactory
                 responseOutOfOrderStrategy,
                 requestWriterFactory,
                 responseParserFactory);
+
         if (socket != null) {
+            // 为null时并没有建立到对端的连接
             conn.bind(socket);
         }
         return conn;

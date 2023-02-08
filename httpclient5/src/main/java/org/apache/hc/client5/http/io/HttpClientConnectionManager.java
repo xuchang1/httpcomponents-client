@@ -50,6 +50,7 @@ import org.apache.hc.core5.util.Timeout;
  *
  * @since 4.3
  */
+// 连接池管理，如租用、释放连接等
 public interface HttpClientConnectionManager extends ModalCloseable {
 
     /**

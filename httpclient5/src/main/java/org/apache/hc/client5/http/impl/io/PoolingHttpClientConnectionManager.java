@@ -110,7 +110,10 @@ public class PoolingHttpClientConnectionManager
     public static final int DEFAULT_MAX_TOTAL_CONNECTIONS = 25;
     public static final int DEFAULT_MAX_CONNECTIONS_PER_ROUTE = 5;
 
+    // 执行connect的逻辑
     private final HttpClientConnectionOperator connectionOperator;
+
+    // httpRoute 级别的pool实现，主要定义了lease、release的逻辑
     private final ManagedConnPool<HttpRoute, ManagedHttpClientConnection> pool;
     private final HttpConnectionFactory<ManagedHttpClientConnection> connFactory;
     private final AtomicBoolean closed;
@@ -295,6 +298,7 @@ public class PoolingHttpClientConnectionManager
         if (LOG.isDebugEnabled()) {
             LOG.debug("{} endpoint lease request ({}) {}", id, requestTimeout, ConnPoolSupport.formatStats(route, state, pool));
         }
+        // 从pool中获取一个连接对象
         final Future<PoolEntry<HttpRoute, ManagedHttpClientConnection>> leaseFuture = this.pool.lease(route, state, requestTimeout, null);
         return new LeaseRequest() {
 
@@ -307,6 +311,8 @@ public class PoolingHttpClientConnectionManager
                 if (this.endpoint != null) {
                     return this.endpoint;
                 }
+
+                // 回调获取 PoolEntry 对象
                 final PoolEntry<HttpRoute, ManagedHttpClientConnection> poolEntry;
                 try {
                     poolEntry = leaseFuture.get(timeout.getDuration(), timeout.getTimeUnit());
@@ -320,6 +326,7 @@ public class PoolingHttpClientConnectionManager
                 final ConnectionConfig connectionConfig = resolveConnectionConfig(route);
                 try {
                     if (poolEntry.hasConnection()) {
+                        // 根据创建时间，判断连接是否过期了。过期则优雅关闭。
                         final TimeValue timeToLive = connectionConfig.getTimeToLive();
                         if (TimeValue.isNonNegative(timeToLive)) {
                             final Deadline deadline = Deadline.calculate(poolEntry.getCreated(), timeToLive);
@@ -328,7 +335,9 @@ public class PoolingHttpClientConnectionManager
                             }
                         }
                     }
+
                     if (poolEntry.hasConnection()) {
+                        // 根据更新时间，判断连接是否过期了。需要注意的时，即使过期如果连接本身还可用，并不会废弃连接。
                         final TimeValue timeValue = resolveValidateAfterInactivity(connectionConfig);
                         if (TimeValue.isNonNegative(timeValue)) {
                             final Deadline deadline = Deadline.calculate(poolEntry.getUpdated(), timeValue);
@@ -336,6 +345,7 @@ public class PoolingHttpClientConnectionManager
                                 final ManagedHttpClientConnection conn = poolEntry.getConnection();
                                 boolean stale;
                                 try {
+                                    // 判断http连接是否可用。如果不可用，返回true，后续会直接关闭连接。
                                     stale = conn.isStale();
                                 } catch (final IOException ignore) {
                                     stale = true;
@@ -349,12 +359,16 @@ public class PoolingHttpClientConnectionManager
                             }
                         }
                     }
+
                     final ManagedHttpClientConnection conn = poolEntry.getConnection();
                     if (conn != null) {
                         conn.activate();
                     } else {
+                        // poolEntry 中不包含连接，创建一个连接并分配
                         poolEntry.assignConnection(connFactory.createConnection(null));
                     }
+
+                    // 此时 poolEntry 中包含了一个http连接对象，但是该对象并不一定连接到了对端
                     this.endpoint = new InternalConnectionEndpoint(poolEntry);
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("{} acquired {}", id, ConnPoolSupport.getId(endpoint));
@@ -389,12 +403,14 @@ public class PoolingHttpClientConnectionManager
             LOG.debug("{} releasing endpoint", ConnPoolSupport.getId(endpoint));
         }
         final ManagedHttpClientConnection conn = entry.getConnection();
+        // 不保活，直接close
         if (conn != null && keepAlive == null) {
             conn.close(CloseMode.GRACEFUL);
         }
         boolean reusable = conn != null && conn.isOpen() && conn.isConsistent();
         try {
             if (reusable) {
+                // 如果复用，设置相应的一些属性
                 entry.updateState(state);
                 entry.updateExpiry(keepAlive);
                 conn.passivate();
@@ -431,6 +447,7 @@ public class PoolingHttpClientConnectionManager
             return;
         }
         final PoolEntry<HttpRoute, ManagedHttpClientConnection> poolEntry = internalEndpoint.getPoolEntry();
+        // 不包含连接对象，重新创建并分配一个
         if (!poolEntry.hasConnection()) {
             poolEntry.assignConnection(connFactory.createConnection(null));
         }
@@ -444,6 +461,8 @@ public class PoolingHttpClientConnectionManager
             LOG.debug("{} connecting endpoint to {} ({})", ConnPoolSupport.getId(endpoint), host, connectTimeout);
         }
         final ManagedHttpClientConnection conn = poolEntry.getConnection();
+
+        // 发起connect请求
         this.connectionOperator.connect(
                 conn,
                 host,
@@ -591,6 +610,7 @@ public class PoolingHttpClientConnectionManager
         } else {
             final ConnectionConfig connectionConfig = resolveConnectionConfig(entry.getRoute());
             final TimeValue timeToLive = connectionConfig.getTimeToLive();
+            // 基于create时间判断是否过期了
             if (timeToLive != null && Deadline.calculate(entry.getCreated(), timeToLive).isBefore(now)) {
                 entry.discardConnection(CloseMode.GRACEFUL);
             }
@@ -709,6 +729,7 @@ public class PoolingHttpClientConnectionManager
             if (LOG.isDebugEnabled()) {
                 LOG.debug("{} executing exchange {} over {}", id, exchangeId, ConnPoolSupport.getId(connection));
             }
+            // 通过request执行器执行请求的逻辑
             return requestExecutor.execute(request, connection, context);
         }
 

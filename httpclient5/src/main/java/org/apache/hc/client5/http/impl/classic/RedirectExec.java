@@ -73,6 +73,7 @@ import org.slf4j.LoggerFactory;
  */
 @Contract(threading = ThreadingBehavior.STATELESS)
 @Internal
+// redirect的相关处理，可配置是否启用及最大次数等
 public final class RedirectExec implements ExecChainHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(RedirectExec.class);
@@ -112,10 +113,15 @@ public final class RedirectExec implements ExecChainHandler {
         ExecChain.Scope currentScope = scope;
         for (int redirectCount = 0;;) {
             final String exchangeId = currentScope.exchangeId;
+
+            // 执行的逻辑
             final ClassicHttpResponse response = chain.proceed(currentRequest, currentScope);
+
+            // redirect的逻辑
             try {
                 if (config.isRedirectsEnabled() && this.redirectStrategy.isRedirected(request, response, context)) {
                     final HttpEntity requestEntity = request.getEntity();
+                    // Entity是否可重复写入到stream
                     if (requestEntity != null && !requestEntity.isRepeatable()) {
                         if (LOG.isDebugEnabled()) {
                             LOG.debug("{} cannot redirect non-repeatable request", exchangeId);
@@ -127,6 +133,7 @@ public final class RedirectExec implements ExecChainHandler {
                     }
                     redirectCount++;
 
+                    // 获取redirect的url
                     final URI redirectUri = this.redirectStrategy.getLocationURI(currentRequest, response, context);
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("{} redirect requested to location '{}'", exchangeId, redirectUri);
@@ -138,6 +145,7 @@ public final class RedirectExec implements ExecChainHandler {
                                 redirectUri);
                     }
 
+                    // 是否运行循环redirect，每次redirect后记录url，判断包含关系
                     if (!config.isCircularRedirectsAllowed()) {
                         if (redirectLocations.contains(redirectUri)) {
                             throw new CircularRedirectException("Circular redirect to '" + redirectUri + "'");
@@ -151,6 +159,7 @@ public final class RedirectExec implements ExecChainHandler {
                         case HttpStatus.SC_MOVED_PERMANENTLY:
                         case HttpStatus.SC_MOVED_TEMPORARILY:
                             if (Method.POST.isSame(request.getMethod())) {
+                                // post请求，redirect构建一个get请求
                                 redirectBuilder = ClassicRequestBuilder.get();
                             } else {
                                 redirectBuilder = ClassicRequestBuilder.copy(scope.originalRequest);
@@ -201,9 +210,12 @@ public final class RedirectExec implements ExecChainHandler {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("{} redirecting to '{}' via {}", exchangeId, redirectUri, currentRoute);
                     }
+
+                    // 重新构建了request，在下一次循环时执行
                     currentRequest = redirectBuilder.build();
                     RequestEntityProxy.enhance(currentRequest);
 
+                    // 关闭response的相关信息
                     EntityUtils.consume(response.getEntity());
                     response.close();
                 } else {

@@ -70,8 +70,10 @@ public class DefaultRoutePlanner implements HttpRoutePlanner {
         @SuppressWarnings("deprecation")
         HttpHost proxy = config.getProxy();
         if (proxy == null) {
+            // proxy的相关信息
             proxy = determineProxy(host, context);
         }
+        // 解析出 HttpHost 完整信息
         final HttpHost target = RoutingSupport.normalize(host, schemePortResolver);
         if (target.getPort() < 0) {
             throw new ProtocolException("Unroutable protocol scheme: " + target);

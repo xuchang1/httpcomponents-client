@@ -35,6 +35,8 @@ import org.apache.hc.core5.net.NamedEndpoint;
 import org.apache.hc.core5.util.Args;
 
 /**
+ * port 解析
+ *
  * Default {@link SchemePortResolver}.
  *
  * @since 4.3

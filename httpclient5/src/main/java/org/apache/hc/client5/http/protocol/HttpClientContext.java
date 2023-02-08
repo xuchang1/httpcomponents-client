@@ -50,6 +50,8 @@ import org.apache.hc.core5.http.protocol.HttpCoreContext;
 import org.apache.hc.core5.util.Args;
 
 /**
+ * 进一步扩充HttpContext的内容，主要就是用map缓存了set的信息，然后提供一些常用方法进行get
+ *
  * Adaptor class that provides convenience type safe setters and getters
  * for common {@link HttpContext} attributes used in the course
  * of HTTP request execution.

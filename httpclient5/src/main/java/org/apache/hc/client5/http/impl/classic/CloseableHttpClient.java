@@ -57,6 +57,7 @@ public abstract class CloseableHttpClient implements HttpClient, ModalCloseable 
 
     private static final Logger LOG = LoggerFactory.getLogger(CloseableHttpClient.class);
 
+    // 真正的执行逻辑，子类实现
     protected abstract CloseableHttpResponse doExecute(HttpHost target, ClassicHttpRequest request,
                                                        HttpContext context) throws IOException;
 
@@ -244,8 +245,10 @@ public abstract class CloseableHttpClient implements HttpClient, ModalCloseable 
 
         try (final ClassicHttpResponse response = doExecute(target, request, context)) {
             try {
+                // 处理response，返回自定义结果，例如获取内容进行序列化
                 final T result = responseHandler.handleResponse(response);
                 final HttpEntity entity = response.getEntity();
+                // 处理entity，一般是关闭流
                 EntityUtils.consume(entity);
                 return result;
             } catch (final HttpException t) {

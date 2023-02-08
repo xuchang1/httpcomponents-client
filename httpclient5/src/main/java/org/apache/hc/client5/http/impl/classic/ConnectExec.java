@@ -117,14 +117,17 @@ public final class ConnectExec implements ExecChainHandler {
         final HttpClientContext context = scope.clientContext;
         final ExecRuntime execRuntime = scope.execRuntime;
 
+        // 是否已经拿到连接了
         if (!execRuntime.isEndpointAcquired()) {
             final Object userToken = context.getUserToken();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("{} acquiring connection with route {}", exchangeId, route);
             }
+            // 获取一个连接对象
             execRuntime.acquireEndpoint(exchangeId, route, userToken, context);
         }
         try {
+            // 连接对象中的http连接是否已经构建了
             if (!execRuntime.isEndpointConnected()) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("{} opening connection {}", exchangeId, route);
@@ -132,13 +135,14 @@ public final class ConnectExec implements ExecChainHandler {
 
                 final RouteTracker tracker = new RouteTracker(route);
                 int step;
+                // 是否走proxy的相关逻辑，一般应该是第一步直接构建连接
                 do {
                     final HttpRoute fact = tracker.toRoute();
                     step = this.routeDirector.nextStep(route, fact);
 
                     switch (step) {
-
                         case HttpRouteDirector.CONNECT_TARGET:
+                            // 和对端构建http连接
                             execRuntime.connectEndpoint(context);
                             tracker.connectTarget(route.isSecure());
                             break;

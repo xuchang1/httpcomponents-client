@@ -152,6 +152,7 @@ public class DefaultHttpClientConnectionOperator implements HttpClientConnection
             final InetAddress address = remoteAddresses[i];
             final boolean last = i == remoteAddresses.length - 1;
 
+            // 创建了一个socket连接，底层最终还是通过socket的输入、输出流读取数据
             Socket sock = sf.createSocket(context);
             if (soTimeout != null) {
                 sock.setSoTimeout(soTimeout.toMillisecondsIntBound());
@@ -170,6 +171,8 @@ public class DefaultHttpClientConnectionOperator implements HttpClientConnection
             if (linger >= 0) {
                 sock.setSoLinger(true, linger);
             }
+
+            // 将socket维护到http connection中
             conn.bind(sock);
 
             final InetSocketAddress remoteAddress = new InetSocketAddress(address, port);
@@ -178,7 +181,9 @@ public class DefaultHttpClientConnectionOperator implements HttpClientConnection
                         host.getHostName(), host.getPort(), localAddress, remoteAddress, connectTimeout);
             }
             try {
+                // 该步是真正向对端发起 socket 的 connect 请求
                 sock = sf.connectSocket(sock, host, remoteAddress, localAddress, connectTimeout, attachment, context);
+                // 又执行一次？
                 conn.bind(sock);
                 conn.setSocketTimeout(soTimeout);
                 if (LOG.isDebugEnabled()) {

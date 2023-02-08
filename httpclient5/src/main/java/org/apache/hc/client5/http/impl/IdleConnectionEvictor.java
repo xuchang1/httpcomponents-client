@@ -58,8 +58,10 @@ public final class IdleConnectionEvictor {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
                     localSleepTime.sleep();
+                    // 剔除超时的连接
                     connectionManager.closeExpired();
                     if (maxIdleTime != null) {
+                        // 剔除超过最大空闲时间的连接
                         connectionManager.closeIdle(maxIdleTime);
                     }
                 }

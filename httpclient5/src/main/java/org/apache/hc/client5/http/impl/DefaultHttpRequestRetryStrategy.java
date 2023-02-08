@@ -176,6 +176,7 @@ public class DefaultHttpRequestRetryStrategy implements HttpRequestRetryStrategy
         if (this.nonRetriableIOExceptionClasses.contains(exception.getClass())) {
             return false;
         } else {
+            // 不可重试的异常
             for (final Class<? extends IOException> rejectException : this.nonRetriableIOExceptionClasses) {
                 if (rejectException.isInstance(exception)) {
                     return false;
@@ -187,6 +188,7 @@ public class DefaultHttpRequestRetryStrategy implements HttpRequestRetryStrategy
         }
 
         // Retry if the request is considered idempotent
+        // request 是否是幂等的
         return handleAsIdempotent(request);
     }
 

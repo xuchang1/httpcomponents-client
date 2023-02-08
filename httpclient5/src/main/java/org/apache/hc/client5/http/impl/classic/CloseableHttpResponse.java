@@ -197,7 +197,9 @@ public final class CloseableHttpResponse implements ClassicHttpResponse {
     public void close() throws IOException {
         if (execRuntime != null) {
             try {
+                // 会触发 response entity 的close操作
                 response.close();
+                // 连接池管理时，正常情况下，该步已经把连接归还连接池了，并不会触发废弃的操作
                 execRuntime.disconnectEndpoint();
             } finally {
                 execRuntime.discardEndpoint();

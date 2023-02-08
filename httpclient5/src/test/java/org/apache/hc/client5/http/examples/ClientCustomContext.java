@@ -28,6 +28,7 @@
 package org.apache.hc.client5.http.examples;
 
 import java.util.List;
+import java.util.jar.JarEntry;
 
 import org.apache.hc.client5.http.ContextBuilder;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -35,7 +36,9 @@ import org.apache.hc.client5.http.cookie.BasicCookieStore;
 import org.apache.hc.client5.http.cookie.Cookie;
 import org.apache.hc.client5.http.cookie.CookieStore;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.StatusLine;
@@ -48,10 +51,12 @@ public class ClientCustomContext {
 
     public static void main(final String[] args) throws Exception {
         try (final CloseableHttpClient httpclient = HttpClients.createDefault()) {
+
             // Create a local instance of cookie store
             final CookieStore cookieStore = new BasicCookieStore();
 
             // Create local HTTP context
+            // http本身的context，存储了一些请求组件上下文的信息
             final HttpClientContext localContext = ContextBuilder.create()
                     // Bind custom cookie store to the local context
                     .useCookieStore(cookieStore)
@@ -61,6 +66,17 @@ public class ClientCustomContext {
             System.out.println("Executing request " + httpget.getMethod() + " " + httpget.getUri());
 
             // Pass local context as a parameter
+            httpclient.execute(httpget, localContext, response -> {
+                System.out.println("----------------------------------------");
+                System.out.println(httpget + "->" + new StatusLine(response));
+                final List<Cookie> cookies = cookieStore.getCookies();
+                for (int i = 0; i < cookies.size(); i++) {
+                    System.out.println("Local cookie: " + cookies.get(i));
+                }
+                EntityUtils.consume(response.getEntity());
+                return null;
+            });
+
             httpclient.execute(httpget, localContext, response -> {
                 System.out.println("----------------------------------------");
                 System.out.println(httpget + "->" + new StatusLine(response));

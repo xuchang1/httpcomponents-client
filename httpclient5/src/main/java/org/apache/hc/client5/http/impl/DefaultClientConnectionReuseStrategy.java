@@ -48,6 +48,7 @@ public class DefaultClientConnectionReuseStrategy extends DefaultConnectionReuse
 
     @Override
     public boolean keepAlive(final HttpRequest request, final HttpResponse response, final HttpContext context) {
+        // connect请求成功，则默认开启
         if (Method.CONNECT.isSame(request.getMethod()) && response.getCode() == HttpStatus.SC_OK) {
             return true;
         }

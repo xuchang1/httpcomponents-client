@@ -66,6 +66,7 @@ import org.slf4j.LoggerFactory;
  */
 @Contract(threading = ThreadingBehavior.STATELESS)
 @Internal
+// request的retry逻辑。默认基于response、异常类判断是否重试，并且可以sleep配置的时间后发起重试。注意不要timeout。
 public class HttpRequestRetryExec implements ExecChainHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpRequestRetryExec.class);
@@ -105,6 +106,8 @@ public class HttpRequestRetryExec implements ExecChainHandler {
                     }
                     throw ex;
                 }
+
+                // 添加异常判断，是否可重试
                 if (retryStrategy.retryRequest(request, ex, execCount, context)) {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("{} {}", exchangeId, ex.getMessage(), ex);
@@ -119,6 +122,7 @@ public class HttpRequestRetryExec implements ExecChainHandler {
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug("{} wait for {}", exchangeId, nextInterval);
                             }
+                            // sleep一段时间，再重试
                             nextInterval.sleep();
                         } catch (final InterruptedException e) {
                             Thread.currentThread().interrupt();
@@ -140,12 +144,15 @@ public class HttpRequestRetryExec implements ExecChainHandler {
 
             try {
                 final HttpEntity entity = request.getEntity();
+                // entity 是否可重复
                 if (entity != null && !entity.isRepeatable()) {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("{} cannot retry non-repeatable request", exchangeId);
                     }
                     return response;
                 }
+
+                // 定义重试的策略，默认基于response的部分响应码进行重试
                 if (retryStrategy.retryRequest(response, execCount, context)) {
                     final TimeValue nextInterval = retryStrategy.getRetryInterval(response, execCount, context);
                     // Make sure the retry interval does not exceed the response timeout

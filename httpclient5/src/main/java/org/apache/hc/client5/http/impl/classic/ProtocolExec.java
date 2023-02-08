@@ -240,6 +240,7 @@ public final class ProtocolExec implements ExecChainHandler {
                         request.addHeader(it.next());
                     }
                 } else {
+                    // 该处对 Entity 进行了增强，当输入流close的时候，会触发连接的释放归还到连接池的操作
                     ResponseEntityProxy.enhance(response, execRuntime);
                     return response;
                 }

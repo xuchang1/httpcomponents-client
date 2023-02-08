@@ -145,6 +145,7 @@ class InternalHttpClient extends CloseableHttpClient implements Configurable {
             final HttpContext context) throws IOException {
         Args.notNull(request, "HTTP request");
         try {
+            // 一些配置信息初始化
             final HttpClientContext localcontext = HttpClientContext.adapt(
                     context != null ? context : new BasicHttpContext());
             RequestConfig config = null;
@@ -158,16 +159,25 @@ class InternalHttpClient extends CloseableHttpClient implements Configurable {
             final HttpRoute route = determineRoute(
                     target != null ? target : RoutingSupport.determineHost(request),
                     localcontext);
+
+            // 请求的id标识
             final String exchangeId = ExecSupport.getNextExchangeId();
             localcontext.setExchangeId(exchangeId);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("{} preparing request execution", exchangeId);
             }
 
+            // 封装 scope
             final ExecRuntime execRuntime = new InternalExecRuntime(LOG, connManager, requestExecutor,
                     request instanceof CancellableDependency ? (CancellableDependency) request : null);
             final ExecChain.Scope scope = new ExecChain.Scope(exchangeId, route, request, execRuntime, localcontext);
+
+            // 真正的执行逻辑。为什么要copy一份request？
+            // 通过前面配置的各种 ExecChainHandler ，包括redirect、retry等逻辑。最终通过 MainClientExec 执行真正的远程调用逻辑
+            // 可以通过添加自定义的ExecChainHandler，实现请求前后的处理
             final ClassicHttpResponse response = this.execChain.execute(ClassicRequestBuilder.copy(request).build(), scope);
+
+            // response 封装
             return CloseableHttpResponse.adapt(response);
         } catch (final HttpException httpException) {
             throw new ClientProtocolException(httpException.getMessage(), httpException);

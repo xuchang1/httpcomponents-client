@@ -44,6 +44,7 @@ import org.apache.hc.core5.http.io.HttpClientConnection;
  * @since 4.3
  */
 @Internal
+// http连接的相关定义
 public interface ManagedHttpClientConnection extends HttpClientConnection {
 
     /**

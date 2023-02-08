@@ -65,6 +65,7 @@ import org.slf4j.LoggerFactory;
  */
 @Contract(threading = ThreadingBehavior.STATELESS)
 @Internal
+// 真正发送请求的逻辑
 public final class MainClientExec implements ExecChainHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(MainClientExec.class);
@@ -111,10 +112,13 @@ public final class MainClientExec implements ExecChainHandler {
             context.setAttribute(HttpClientContext.HTTP_ROUTE, route);
             context.setAttribute(HttpCoreContext.HTTP_REQUEST, request);
 
+            // 处理request的拦截器
             httpProcessor.process(request, request.getEntity(), context);
 
+            // 执行请求的逻辑
             final ClassicHttpResponse response = execRuntime.execute(exchangeId, request, context);
 
+            // 处理response的拦截器
             context.setAttribute(HttpCoreContext.HTTP_RESPONSE, response);
             httpProcessor.process(response, response.getEntity(), context);
 
@@ -125,6 +129,7 @@ public final class MainClientExec implements ExecChainHandler {
             }
 
             // The connection is in or can be brought to a re-usable state.
+            // keepAlive 逻辑的处理
             if (reuseStrategy.keepAlive(request, response, context)) {
                 // Set the idle duration of this connection
                 final TimeValue duration = keepAliveStrategy.getKeepAliveDuration(response, context);
@@ -137,17 +142,22 @@ public final class MainClientExec implements ExecChainHandler {
                     }
                     LOG.debug("{} connection can be kept alive {}", exchangeId, s);
                 }
+                // 设置连接复用
                 execRuntime.markConnectionReusable(userToken, duration);
             } else {
                 execRuntime.markConnectionNonReusable();
             }
+
             // check for entity, release connection if possible
             final HttpEntity entity = response.getEntity();
+            // response 的 entity不存在或不是stream，释放连接
             if (entity == null || !entity.isStreaming()) {
                 // connection not needed and (assumed to be) in re-usable state
                 execRuntime.releaseEndpoint();
                 return new CloseableHttpResponse(response, null);
             }
+
+            // 正常return
             return new CloseableHttpResponse(response, execRuntime);
         } catch (final ConnectionShutdownException ex) {
             final InterruptedIOException ioex = new InterruptedIOException(

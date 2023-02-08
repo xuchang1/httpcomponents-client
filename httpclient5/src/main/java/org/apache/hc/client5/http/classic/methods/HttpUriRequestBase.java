@@ -34,6 +34,7 @@ import org.apache.hc.core5.concurrent.Cancellable;
 import org.apache.hc.core5.concurrent.CancellableDependency;
 import org.apache.hc.core5.http.message.BasicClassicHttpRequest;
 
+// 提供了request相关的所有信息及接口实现，包括生命周期的各种属性，及一些cancel之类的方法逻辑
 public class HttpUriRequestBase extends BasicClassicHttpRequest implements HttpUriRequest, CancellableDependency {
 
     private static final long serialVersionUID = 1L;

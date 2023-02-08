@@ -728,14 +728,20 @@ public class HttpClientBuilder {
     public CloseableHttpClient build() {
         // Create main request executor
         // We copy the instance fields to avoid changing them, and rename to avoid accidental use of the wrong version
+        // 1. request的执行器
         HttpRequestExecutor requestExecCopy = this.requestExec;
         if (requestExecCopy == null) {
             requestExecCopy = new HttpRequestExecutor();
         }
+
+        // 2. 连接池的管理
         HttpClientConnectionManager connManagerCopy = this.connManager;
         if (connManagerCopy == null) {
+            // 默认池话管理http连接
             connManagerCopy = PoolingHttpClientConnectionManagerBuilder.create().build();
         }
+
+        // 3. reuse策略，是否启用keepAlive相关配置，正常请求默认为true
         ConnectionReuseStrategy reuseStrategyCopy = this.reuseStrategy;
         if (reuseStrategyCopy == null) {
             if (systemProperties) {
@@ -750,10 +756,14 @@ public class HttpClientBuilder {
             }
         }
 
+
+        // 4. keepAlive时间的配置
         ConnectionKeepAliveStrategy keepAliveStrategyCopy = this.keepAliveStrategy;
         if (keepAliveStrategyCopy == null) {
             keepAliveStrategyCopy = DefaultConnectionKeepAliveStrategy.INSTANCE;
         }
+
+        // 5. Auth ect.
         AuthenticationStrategy targetAuthStrategyCopy = this.targetAuthStrategy;
         if (targetAuthStrategyCopy == null) {
             targetAuthStrategyCopy = DefaultAuthenticationStrategy.INSTANCE;
@@ -782,6 +792,7 @@ public class HttpClientBuilder {
             }
         }
 
+        // 6. request、response etc. 拦截
         final HttpProcessorBuilder b = HttpProcessorBuilder.create();
         if (requestInterceptors != null) {
             for (final RequestInterceptorEntry entry: requestInterceptors) {
@@ -826,10 +837,13 @@ public class HttpClientBuilder {
         }
         final HttpProcessor httpProcessor = b.build();
 
+        // 7.
         final NamedElementChain<ExecChainHandler> execChainDefinition = new NamedElementChain<>();
+        // 7.1 MainClientExec
         execChainDefinition.addLast(
                 new MainClientExec(connManagerCopy, httpProcessor, reuseStrategyCopy, keepAliveStrategyCopy, userTokenHandlerCopy),
                 ChainElement.MAIN_TRANSPORT.name());
+        // 7.2 ConnectExec
         execChainDefinition.addFirst(
                 new ConnectExec(
                         reuseStrategyCopy,
@@ -839,6 +853,7 @@ public class HttpClientBuilder {
                         authCachingDisabled),
                 ChainElement.CONNECT.name());
 
+        // 7.3 ProtocolExec
         execChainDefinition.addFirst(
                 new ProtocolExec(
                         targetAuthStrategyCopy,
@@ -849,6 +864,7 @@ public class HttpClientBuilder {
 
         // Add request retry executor, if not disabled
         if (!automaticRetriesDisabled) {
+            // 7.4 RetryExec
             HttpRequestRetryStrategy retryStrategyCopy = this.retryStrategy;
             if (retryStrategyCopy == null) {
                 retryStrategyCopy = DefaultHttpRequestRetryStrategy.INSTANCE;
@@ -858,6 +874,7 @@ public class HttpClientBuilder {
                     ChainElement.RETRY.name());
         }
 
+        // route planner，default、proxy、system
         HttpRoutePlanner routePlannerCopy = this.routePlanner;
         if (routePlannerCopy == null) {
             SchemePortResolver schemePortResolverCopy = this.schemePortResolver;
@@ -874,6 +891,7 @@ public class HttpClientBuilder {
             }
         }
 
+        // 7.5 ContentCompressionExec
         if (!contentCompressionDisabled) {
             if (contentDecoderMap != null) {
                 final List<String> encodings = new ArrayList<>(contentDecoderMap.keySet());
@@ -896,6 +914,7 @@ public class HttpClientBuilder {
             if (redirectStrategyCopy == null) {
                 redirectStrategyCopy = DefaultRedirectStrategy.INSTANCE;
             }
+            // 7.6 RedirectExec
             execChainDefinition.addFirst(
                     new RedirectExec(routePlannerCopy, redirectStrategyCopy),
                     ChainElement.REDIRECT.name());
@@ -903,10 +922,12 @@ public class HttpClientBuilder {
 
         // Optionally, add connection back-off executor
         if (this.backoffManager != null && this.connectionBackoffStrategy != null) {
+            // 7.7 BackoffStrategyExec
             execChainDefinition.addFirst(new BackoffStrategyExec(this.connectionBackoffStrategy, this.backoffManager),
                     ChainElement.BACK_OFF.name());
         }
 
+        // 7.7 也是 Exec
         if (execInterceptors != null) {
             for (final ExecInterceptorEntry entry: execInterceptors) {
                 switch (entry.position) {
@@ -931,8 +952,10 @@ public class HttpClientBuilder {
             }
         }
 
+        // 7.8 定制化的一些配置，空实现，protect方法
         customizeExecChain(execChainDefinition);
 
+        // 构建 execChain 的链表（前面的添加顺序，从后往前）
         NamedElementChain<ExecChainHandler>.Node current = execChainDefinition.getLast();
         ExecChainElement execChain = null;
         while (current != null) {
@@ -940,6 +963,7 @@ public class HttpClientBuilder {
             current = current.getPrevious();
         }
 
+        // 7.9 other
         Lookup<AuthSchemeFactory> authSchemeRegistryCopy = this.authSchemeRegistry;
         if (authSchemeRegistryCopy == null) {
             authSchemeRegistryCopy = RegistryBuilder.<AuthSchemeFactory>create()
@@ -986,12 +1010,14 @@ public class HttpClientBuilder {
                             Thread.currentThread().interrupt();
                         }
                     });
+                    // 7.10 启用后台线程，执行回收空闲连接
                     connectionEvictor.start();
                 }
             }
             closeablesCopy.add(connManagerCopy);
         }
 
+        // 默认 InternalHttpClient
         return new InternalHttpClient(
                 connManagerCopy,
                 requestExecCopy,

@@ -64,6 +64,7 @@ public class DefaultRedirectStrategy implements RedirectStrategy {
         Args.notNull(request, "HTTP request");
         Args.notNull(response, "HTTP response");
 
+        // location 里面包含了redirect的url
         if (!response.containsHeader(HttpHeaders.LOCATION)) {
             return false;
         }
